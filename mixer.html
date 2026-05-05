@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Chill Pill - Ayem Jaybee</title>
+    <style>
+        :root { 
+            --accent: #6339B4; 
+            --bg: #6339B4; 
+            --panel: rgba(10, 10, 10, 0.9); 
+            --text: #eee; 
+        }
+        
+        body { 
+            margin:0; background: var(--bg); color: var(--text); 
+            font-family: 'Inter', system-ui, sans-serif; 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; overflow: hidden; 
+        }
+        
+        .sketch-app { 
+            width: 940px; height: 620px; display: grid; grid-template-columns: 240px 1fr 240px; gap: 15px;
+            padding: 25px; background: rgba(0,0,0,0.4); border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); 
+            backdrop-filter: blur(30px); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        #loader {
+            position: absolute; top:0; left:0; width:100%; height:100%; background: var(--bg);
+            z-index: 100; display: none; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 24px;
+        }
+
+        .panel { border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 15px; display: flex; flex-direction: column; background: var(--panel); }
+        h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #555; margin: 0 0 12px 0; }
+
+        .art-box { 
+            width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 12px; 
+            margin-bottom: 15px; border: 1px solid #222; overflow: hidden; 
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .art-box img { width: 100%; height: 100%; object-fit: cover; }
+
+        #artistName { font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; }
+        #trackName { font-size: 11px; color: #777; margin-top: 5px; height: 40px; overflow: hidden; }
+
+        .waveform-box { width: 100%; height: 120px; background: #000; border-radius: 12px; border: 1px solid #222; position: relative; overflow: hidden;}
+        canvas { width: 100%; height: 100%; }
+
+        .time-display { position: absolute; bottom: 15px; width: 100%; padding: 0 15px; display: flex; justify-content: space-between; font-family: monospace; font-size: 14px; color: var(--accent); box-sizing: border-box; font-weight: bold; }
+        .mix-timer-container { position: absolute; bottom: 4px; width: calc(100% - 30px); left: 15px; font-size: 9px; color: #444; font-weight: bold; border-top: 1px solid #222; padding-top: 4px; text-transform: uppercase; }
+
+        .vinyl-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+        .disc { 
+            width: 260px; height: 260px; border-radius: 50%; 
+            background: conic-gradient(#000 0%, #111 10%, #000 20%, #0a0a0a 40%, #000 60%, #0c0c0c 80%, #000 100%); 
+            border: 8px solid #111; position: relative; 
+            box-shadow: 0 0 30px rgba(99, 57, 180, 0.3);
+        }
+        .disc-center { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); width: 55px; height: 55px; background: #111; border-radius: 50%; border: 3px solid var(--accent); }
+
+        .deck-controls { position: absolute; right: 20px; bottom: 25px; display: flex; flex-direction: column; gap: 10px; z-index: 10;}
+        .btn { width: 80px; padding: 12px 0; background: #1a1a1a; border: 1px solid #333; color: #fff; border-radius: 10px; cursor: pointer; font-size: 9px; font-weight: bold; text-transform: uppercase; }
+        .btn.recording { color: #ff3d00; border-color: #ff3d00; }
+        
+        #playlist { flex-grow: 1; overflow-y: auto; border: 1px solid #222; border-radius: 12px; background: #000; padding: 5px; }
+        .track-item { padding: 12px 10px; font-size: 11px; border-bottom: 1px solid #0d0d0d; cursor: pointer; color: #666; transition: 0.2s;}
+        .track-item.active { border-left: 4px solid var(--accent); background: #0f0f0f; color: #fff; }
+        .track-item.played { opacity: 0.2; pointer-events: none; }
+        
+        .import-btn { margin-top: 15px; background: #1a1a1a; padding: 15px; text-align: center; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: bold; border: 1px dashed #444; }
+        #prog-bar { position: absolute; bottom: 0; height: 4px; width: 0%; background: var(--accent); z-index: 6;}
+    </style>
+</head>
+<body>
+
+<div class="sketch-app">
+    <div id="loader">
+        <h2 style="color:#fff">ANALYZING LOGIC...</h2>
+        <div style="width:200px; height:2px; background:rgba(255,255,255,0.1); overflow:hidden;">
+            <div id="scan-fill" style="width:0%; height:100%; background:var(--accent); transition:0.3s;"></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Now Playing</h2>
+        <div class="art-box">
+            <img id="nowPlayingArt" src="logo.png" onerror="this.src='https://via.placeholder.com/300/000/6339B4?text=JB'">
+        </div>
+        <div id="artistName">AYEM JAYBEE</div>
+        <div id="trackName">Waiting for library...</div>
+    </div>
+
+    <div class="panel central-deck" style="position:relative">
+        <div class="waveform-box">
+            <canvas id="viz"></canvas>
+            <div class="time-display"><span id="cur-time">00:00</span><span id="rem-time">-00:00</span></div>
+            <div class="mix-timer-container">MIX DURATION: <span id="mix-elapsed">00:00:00</span></div>
+            <div id="prog-bar"></div>
+        </div>
+        <div class="vinyl-container"><div class="disc" id="vinyl"><div class="disc-center"></div></div></div>
+        <div class="deck-controls">
+            <button class="btn" id="playBtn">Play</button>
+            <button class="btn" id="nextBtn">Skip</button>
+            <button class="btn" id="dlBtn">Download</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Library</h2>
+        <div id="playlist"></div>
+        <label class="import-btn"> + IMPORT <input type="file" id="fileIn" multiple style="display:none"> </label>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+
+<script>
+    const XFADE = 12; 
+    let audioCtx, analyser, gainA, gainB, dest, recorder, chunks = [], trackList = [], rotation = 0;
+    let currentSlot = null, isUsingA = true, isTransitioning = false, mixStartTime = null;
+
+    async function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            dest = audioCtx.createMediaStreamDestination();
+            gainA = audioCtx.createGain(); gainB = audioCtx.createGain();
+            [gainA, gainB].forEach(g => { g.connect(analyser); g.connect(dest); });
+            analyser.connect(audioCtx.destination);
+            
+            recorder = new MediaRecorder(dest.stream);
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob); a.download = 'Chill_Pill_Live_Mix.webm'; a.click();
+                chunks = []; 
+                document.getElementById('dlBtn').classList.remove('recording');
+                document.getElementById('dlBtn').innerText = "Download";
+            };
+            recorder.start();
+            mixStartTime = Date.now();
+            document.getElementById('dlBtn').classList.add('recording');
+            document.getElementById('dlBtn').innerText = "Recording...";
+            requestAnimationFrame(loop);
+        }
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+    }
+
+    document.getElementById('fileIn').onchange = async (e) => {
+        const files = Array.from(e.target.files);
+        if(files.length === 0) return;
+        document.getElementById('loader').style.display = 'flex';
+        for(let i=0; i<files.length; i++) {
+            trackList.push({ file: files[i], url: URL.createObjectURL(files[i]), played: false });
+            document.getElementById('scan-fill').style.width = ((i + 1) / files.length * 100) + "%";
+        }
+        document.getElementById('loader').style.display = 'none';
+        renderList();
+    };
+
+    function renderList() {
+        const list = document.getElementById('playlist');
+        list.innerHTML = '';
+        trackList.forEach((t, i) => {
+            const div = document.createElement('div');
+            div.className = `track-item ${currentSlot?.track === t ? 'active' : ''} ${t.played ? 'played' : ''}`;
+            div.innerText = t.file.name;
+            div.onclick = async () => { await initAudio(); playTrack(i); };
+            list.appendChild(div);
+        });
+    }
+
+    function extractArt(file) {
+        window.jsmediatags.read(file, {
+            onSuccess: function(tag) {
+                const art = tag.tags.picture;
+                if (art) {
+                    let base64String = "";
+                    for (let i = 0; i < art.data.length; i++) base64String += String.fromCharCode(art.data[i]);
+                    document.getElementById('nowPlayingArt').src = "data:" + art.format + ";base64," + window.btoa(base64String);
+                } else {
+                    document.getElementById('nowPlayingArt').src = "logo.png";
+                }
+            },
+            onError: () => document.getElementById('nowPlayingArt').src = "logo.png"
+        });
+    }
+
+    async function playTrack(i) {
+        if(currentSlot && !isTransitioning) currentSlot.audio.pause();
+        const track = trackList[i];
+        const audio = new Audio(track.url);
+        const g = isUsingA ? gainA : gainB;
+        const source = audioCtx.createMediaElementSource(audio);
+        source.connect(g);
+        g.gain.setTargetAtTime(1, audioCtx.currentTime, 0.1);
+        track.played = true;
+        currentSlot = { audio, track, gain: g, index: i };
+        document.getElementById('trackName').innerText = track.file.name;
+        extractArt(track.file);
+        audio.play();
+        renderList();
+    }
+
+    async function next() {
+        if (isTransitioning) return;
+        const unplayed = trackList.filter(t => !t.played);
+        if (unplayed.length === 0) return;
+        isTransitioning = true;
+        const nextTrack = unplayed[0];
+        const nextG = isUsingA ? gainB : gainA;
+        const currG = isUsingA ? gainA : gainB;
+        const nextAudio = new Audio(nextTrack.url);
+        const source = audioCtx.createMediaElementSource(nextAudio);
+        source.connect(nextG);
+        nextG.gain.setValueAtTime(0, audioCtx.currentTime);
+        await nextAudio.play();
+        currG.gain.setTargetAtTime(0, audioCtx.currentTime, XFADE/3);
+        nextG.gain.setTargetAtTime(1, audioCtx.currentTime, XFADE/3);
+        setTimeout(() => {
+            if (currentSlot) currentSlot.audio.pause();
+            nextTrack.played = true;
+            currentSlot = { audio: nextAudio, track: nextTrack, gain: nextG, index: trackList.indexOf(nextTrack) };
+            isUsingA = !isUsingA; isTransitioning = false;
+            document.getElementById('trackName').innerText = nextTrack.file.name;
+            extractArt(nextTrack.file);
+            renderList();
+        }, XFADE * 1000);
+    }
+
+    function loop() {
+        if (currentSlot && !currentSlot.audio.paused) {
+            const a = currentSlot.audio;
+            rotation += 1.2; 
+            document.getElementById('vinyl').style.transform = `rotate(${rotation}deg)`;
+            document.getElementById('prog-bar').style.width = (a.currentTime / a.duration * 100) + "%";
+            document.getElementById('cur-time').innerText = fmt(a.currentTime);
+            document.getElementById('rem-time').innerText = "-" + fmt(a.duration - a.currentTime);
+            if (mixStartTime) {
+                const totalSec = Math.floor((Date.now() - mixStartTime) / 1000);
+                const h = Math.floor(totalSec / 3600), m = Math.floor((totalSec % 3600) / 60), s = totalSec % 60;
+                document.getElementById('mix-elapsed').innerText = `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+            }
+            if (a.duration - a.currentTime < 14 && !isTransitioning) next();
+        }
+        
+        const canvas = document.getElementById('viz'), ctx = canvas.getContext('2d');
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteTimeDomainData(data);
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        ctx.strokeStyle = '#6339B4'; ctx.lineWidth = 3; ctx.beginPath();
+        let x = 0, slice = canvas.width / data.length;
+        for(let i=0; i<data.length; i++) {
+            let y = (data[i] / 128.0) * canvas.height / 2;
+            i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+            x += slice;
+        }
+        ctx.stroke();
+        requestAnimationFrame(loop);
+    }
+
+    function fmt(s) { if(!isFinite(s)) return "00:00"; let m = Math.floor(s/60), sec = Math.floor(s%60); return `${m}:${sec < 10 ? '0' : ''}${sec}`; }
+    document.getElementById('playBtn').onclick = () => currentSlot?.audio.paused ? currentSlot.audio.play() : currentSlot?.audio.pause();
+    document.getElementById('nextBtn').onclick = () => next();
+    document.getElementById('dlBtn').onclick = () => { if(recorder && recorder.state !== "inactive") recorder.stop(); };
+</script>
+</body>
+</html>
